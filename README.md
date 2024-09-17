@@ -638,4 +638,138 @@ LEFT JOIN customers AS c
 
 ![](https://i.imgur.com/mhf4pln.png)
 
+### Analyzing Customer Loan Balances
+
+```sql
+SELECT c.customer_id, c.first_name, c.last_name, l.loan_id, l.loan_amount, l.interest_rate, l.loan_term,
+	(l.loan_amount + (l.loan_amount * (l.interest_rate / 100) * l.loan_term)) AS total_due_with_interest,
+	COALESCE(SUM(lp.payment_amount), 0) AS total_paid,
+	((l.loan_amount + (l.loan_amount * (l.interest_rate / 100) * l.loan_term)) - COALESCE(SUM(lp.payment_amount), 0)) AS loan_balance
+FROM customers AS c
+INNER JOIN loans AS l
+	ON c.customer_id = l.customer_id
+	LEFT JOIN loan_payments AS lp
+		ON l.loan_id = lp.loan_id
+GROUP BY c.customer_id, c.first_name, c.Last_name, l.loan_id, l.loan_amount, l.interest_rate, l.loan_term
+ORDER BY c.customer_id;
+```
+
+![](https://i.imgur.com/kfN7ZY2.png)
+
+### Listing All the Customers Who Made a Transaction in March, 2024
+
+```sql
+SELECT DISTINCT c.customer_id, c.first_name, c.last_name
+FROM customers AS c
+INNER JOIN accounts AS a
+	ON c.customer_id = a.customer_id
+	INNER JOIN transactions AS t
+		ON a.account_id = t.account_id
+WHERE t.transaction_date BETWEEN '2024-03-01' AND '2024-03-31';
+```
+
+![](https://i.imgur.com/ist9TM2.png)
+
+___
+
+## Aggregate Functions and Insights
+
+### Calculating the Total Balance for All Accounts For Each Customer
+
+```sql
+SELECT c.customer_id, c.first_name, c.last_name, SUM(a.balance) AS total_balance
+FROM customers AS c
+JOIN accounts AS a
+	ON c.customer_id = a.customer_id
+GROUP BY c.customer_id, c.first_name, c.last_name;
+```
+
+![](https://i.imgur.com/1NWPR6i.png)
+
+### Calculating the Average Loan Amount For Each Loan Term
+
+```sql
+SELECT loan_term, AVG(loan_amount) AS average_loan_amount
+FROM loans
+GROUP BY loan_term;
+```
+
+![](https://i.imgur.com/d8n1dks.png)
+
+### Finding the Total Loan Amount and Interest Across All Loans
+
+```sql
+SELECT loan_id, loan_amount, interest_rate, loan_term,
+	(loan_amount + (loan_amount * (interest_rate / 100) * loan_term)) AS total_loan_amount,
+	(loan_amount * (interest_rate / 100) * loan_term) AS total_interest
+FROM loans
+GROUP BY loan_id, loan_amount, interest_rate, loan_term;
+```
+
+![](https://i.imgur.com/VjlhdKS.png)
+
+### Finding the Most Frequent Transaction Type
+
+```sql
+SELECT TOP 1 transaction_type, COUNT(*) AS frequency
+FROM transactions
+GROUP BY transaction_type
+ORDER BY frequency DESC;
+```
+
+![](https://i.imgur.com/zfeOxcR.png)
+
+### Analyzing the Transactions by Account and Transaction Type
+
+```sql
+SELECT a.account_id, t.transaction_type,
+	COUNT(*) AS transaction_count,
+	SUM(t.transaction_amount) AS total_amount
+FROM transactions AS t
+INNER JOIN accounts AS a
+	ON t.account_id = a.account_id
+GROUP BY a.account_id, t.transaction_type
+ORDER BY a.account_id, t.transaction_type;
+```
+
+![](https://i.imgur.com/B8AsLnl.png)
+
+___
+
+## Advanced Analysis
+
+### Dropping the View if it Already Exists
+
+```sql
+DROP VIEW IF EXISTS ActiveLoansWithLargePayments;
+```
+
+![](https://i.imgur.com/9GNXnhA.png)
+
+### Creating a View to Include All  Loans With Payments More than $1,000
+
+```sql
+CREATE VIEW ActiveLoansWithLargePayments AS
+SELECT l.loan_id, l.customer_id, l.loan_amount, l.interest_rate, l.loan_term, lp.payment_id, lp.payment_date, lp.payment_amount
+FROM loans AS l
+JOIN loan_payments AS lp
+	ON l.loan_id = lp.loan_id
+WHERE lp.payment_amount > 1000;
+
+SELECT TOP 10 * FROM ActiveLoansWithLargePayments;
+```
+
+![](https://i.imgur.com/3HKvQY8.png)
+
+### Creating an Index on *"transaction_date"* in the *"transactions"* Table for Performance Optimization
+
+```sql
+CREATE INDEX idx_transaction_date ON transactions (transaction_date);
+```
+
+![](https://i.imgur.com/8dpkQRe.png)
+
+> [!Note]
+> 
+> Since there isn't enough data in the *transactions* table, and it takes less than a second to load the complete table, no visible and measurable performance could be observed in pulling data from the indexed or non-indexed *transactions* table. However, as the data grows, the difference in performance becomes more evident.
 
